@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elim Farms Dashboard</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<style>
+:root {
+    --accent: #2c7a2c;
+    --high-yield: #2e7d32;
+    --selected: #e65100;
+    --default: #1976d2;
+    --ui: #333;
+    --muted: #666;
+    --panel-width: 400px;
+    --safe-margin: 3%;
+    
+    /* Typography scale */
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 24px;
+    --text-2xl: 32px;
+    
+    /* Animation durations - FROM ELECTION MAP */
+    --duration-instant: 120ms;
+    --duration-fast: 220ms;
+    --duration-normal: 500ms;
+    --duration-slow: 1000ms;
+    --duration-zoom-in: 2400ms;
+    --duration-zoom-out: 1800ms;
+    
+    /* Z-index scale */
+    --z-base: 10;
+    --z-panels: 50;
+    --z-header: 100;
+    --z-tooltip: 200;
+    --z-loading: 1000;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f8f9fa;
+    color: #333;
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* Main container */
+#container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+/* Map container */
+#map-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+svg#map {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #f5f5f5;
+}
+
+/* Farm block styles - ENHANCED WITH ELECTION MAP STYLES */
+.block {
+    stroke: #555;
+    stroke-width: 5px; /* Thicker like election map */
+    cursor: pointer;
+    transition: stroke-width var(--duration-instant) ease, 
+                filter var(--duration-instant) ease, 
+                opacity var(--duration-instant) ease;
+    paint-order: stroke;
+}
+
+.block:hover {
+    stroke-width: 6px;
+    filter: drop-shadow(0 2px 10px rgba(44, 122, 44, 0.4));
+}
+
+.block.selected {
+    stroke-width: 7px;
+    stroke: var(--selected);
+    filter: drop-shadow(0 2px 14px rgba(230, 81, 0, 0.6));
+    z-index: 20;
+}
+
+.block.faded {
+    opacity: 0.12;
+}
+
+.block-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    fill: #333;
+    text-anchor: middle;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity var(--duration-normal) ease;
+}
+
+.block-label.hidden {
+    opacity: 0;
+}
+
+/* Panel - ENHANCED WITH ELECTION MAP TRANSITIONS */
+#panel {
+    width: var(--panel-width);
+    background: white;
+    padding: 0;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    z-index: var(--z-panels);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: opacity var(--duration-normal) ease, 
+                visibility var(--duration-normal) ease;
+}
+
+.panel-content {
+    padding: 25px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.panel-header {
+    background: var(--accent);
+    color: white;
+    padding: 20px 25px;
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: 600;
+    transition: all var(--duration-fast) ease;
+}
+
+/* Search */
+.panel-search {
+    padding: 15px 25px;
+    border-bottom: 1px solid #eee;
+    transition: opacity var(--duration-normal) ease,
+                max-height var(--duration-normal) ease,
+                padding var(--duration-normal) ease;
+    overflow: hidden;
+}
+
+.panel-search.hidden {
+    opacity: 0;
+    max-height: 0;
+    padding: 0 25px;
+}
+
+.search-input-wrapper {
+    position: relative;
+}
+
+#block-search {
+    width: 100%;
+    padding: 10px 35px 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: var(--text-sm);
+    transition: border-color var(--duration-fast);
+}
+
+#block-search:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+    font-size: var(--text-sm);
+    pointer-events: none;
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: none;
+    z-index: var(--z-panels);
+}
+
+.search-results.visible {
+    display: block;
+}
+
+.search-result-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: var(--text-sm);
+    transition: background var(--duration-fast);
+}
+
+.search-result-item:hover,
+.search-result-item.highlighted {
+    background: #f0f0f0;
+}
+
+.search-result-item.selected {
+    background: var(--accent);
+    color: white;
+}
+
+/* Farm summary stats */
+.summary-stats {
+    transition: opacity var(--duration-normal) ease,
+                max-height var(--duration-normal) ease,
+                padding var(--duration-normal) ease;
+    overflow: hidden;
+}
+
+.summary-stats.hidden {
+    opacity: 0;
+    max-height: 0;
+    padding: 0;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: var(--text-sm);
+}
+
+.stat-value {
+    color: #333;
+    font-weight: 600;
+    font-size: var(--text-sm);
+}
+
+/* Block details section */
+.block-details-section {
+    transition: opacity var(--duration-normal) ease,
+                max-height var(--duration-normal) ease,
+                padding var(--duration-normal) ease;
+    overflow: hidden;
+    opacity: 0;
+    max-height: 0;
+    padding: 0;
+}
+
+.block-details-section.visible {
+    opacity: 1;
+    max-height: 2000px;
+    padding: 0;
+}
+
+.block-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.clear-selection {
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: var(--text-xs);
+    transition: all var(--duration-fast);
+}
+
+.clear-selection:hover {
+    background: var(--accent);
+    color: white;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+    transition: background-color var(--duration-fast);
+}
+
+.detail-row:hover {
+    background-color: #f8f9fa;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    color: #555;
+    font-weight: 500;
+    flex: 1;
+    font-size: var(--text-sm);
+}
+
+.detail-value {
+    color: #333;
+    font-weight: 600;
+    flex: 1;
+    text-align: right;
+    font-size: var(--text-sm);
+}
+
+/* Chart for plant density */
+.density-chart {
+    width: 100%;
+    height: 80px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    margin: 15px 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.density-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #a8e6a8, var(--accent));
+    border-radius: 4px;
+    transition: width var(--duration-slow) ease;
+}
+
+.chart-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #333;
+    font-weight: 600;
+    font-size: var(--text-sm);
+    text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+}
+
+/* Loading states */
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255,255,255,0.95);
+    padding: 20px 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: var(--z-loading);
+}
+
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(44, 122, 44, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.error-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    padding: 40px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    z-index: var(--z-loading);
+}
+
+.error-state-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.error-state-title {
+    font-size: var(--text-xl);
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.error-state-message {
+    color: var(--muted);
+    margin-bottom: 20px;
+}
+
+.retry-button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: var(--text-base);
+    cursor: pointer;
+    transition: background var(--duration-fast);
+}
+
+.retry-button:hover {
+    background: #236b23;
+}
+
+/* Tooltip - STYLED LIKE ELECTION MAP */
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: var(--text-sm);
+    pointer-events: none;
+    z-index: var(--z-tooltip);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    max-width: 280px;
+    backdrop-filter: blur(4px);
+    line-height: 1.5;
+    transition: opacity var(--duration-instant) ease;
+}
+
+.tooltip:after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+/* Navigation buttons */
+.navigation-buttons {
+    position: absolute;
+    right: var(--safe-margin);
+    bottom: var(--safe-margin);
+    display: flex;
+    gap: 10px;
+    z-index: var(--z-base);
+}
+
+.nav-button {
+    background: white;
+    color: var(--accent);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all var(--duration-fast);
+}
+
+.nav-button:hover:not(:disabled) {
+    background: var(--accent);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.nav-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.nav-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    background: #eee;
+    color: #999;
+}
+
+/* Zoom and rotate controls */
+.zoom-controls {
+    position: absolute;
+    right: var(--safe-margin);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: var(--z-base);
+}
+
+.zoom-button {
+    background: white;
+    color: var(--accent);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: all var(--duration-fast);
+}
+
+.zoom-button:hover {
+    background: var(--accent);
+    color: white;
+}
+
+#rotate-view {
+    background: white;
+    color: #8a6e4b;
+    border: 2px solid #8a6e4b;
+}
+
+#rotate-view:hover {
+    background: #8a6e4b;
+    color: white;
+}
+
+#rotate-view.rotated {
+    background: #8a6e4b;
+    color: white;
+}
+
+/* Legend */
+.legend {
+    position: absolute;
+    left: var(--safe-margin);
+    bottom: var(--safe-margin);
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: var(--z-base);
+    max-width: 200px;
+}
+
+.legend-title {
+    margin: 0 0 10px 0;
+    color: var(--accent);
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin-right: 8px;
+}
+
+.legend-text {
+    font-size: var(--text-xs);
+    color: #555;
+}
+</style>
+</head>
+
+<body>
+<div id="container">
+    <div id="map-container">
+        <svg id="map"></svg>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-title">Block Status</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--default);"></div>
+                <div class="legend-text">Normal</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--selected);"></div>
+                <div class="legend-text">Selected</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--high-yield);"></div>
+                <div class="legend-text">High Yield</div>
+            </div>
+        </div>
+        
+        <!-- Zoom controls -->
+        <div class="zoom-controls">
+            <button class="zoom-button" id="zoom-in" title="Zoom In">+</button>
+            <button class="zoom-button" id="zoom-out" title="Zoom Out">−</button>
+            <button class="zoom-button" id="reset-view" title="Reset View">↺</button>
+            <button class="zoom-button" id="rotate-view" title="Rotate Map 90°">↻</button>
+        </div>
+        
+        <!-- Navigation -->
+        <div class="navigation-buttons">
+            <button class="nav-button" id="prev-block" title="Previous Block (←)">←</button>
+            <button class="nav-button" id="next-block" title="Next Block (→)">→</button>
+        </div>
+        
+        <!-- Loading -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="loading-spinner"></div>
+            <span id="loading-text">Loading farm data...</span>
+        </div>
+        
+        <!-- Error State -->
+        <div id="error-state" class="error-state" style="display: none;">
+            <div class="error-state-icon">⚠️</div>
+            <div class="error-state-title">Failed to Load Data</div>
+            <div class="error-state-message" id="error-message">Please check your connection and try again.</div>
+            <button class="retry-button" id="retry-btn">Retry</button>
+        </div>
+    </div>
+    
+    <!-- Panel -->
+    <div id="panel">
+        <h3 class="panel-header" id="panel-title">🍌 Elim Farms Dashboard <span style="font-size: 14px; opacity: 0.8; font-weight: 400;">v3.0</span></h3>
+        
+        <!-- Search -->
+        <div class="panel-search" id="panel-search">
+            <div class="search-input-wrapper">
+                <input type="text" id="block-search" placeholder="Search blocks..." autocomplete="off">
+                <span class="search-icon">🔍</span>
+            </div>
+            <div id="search-results" class="search-results"></div>
+        </div>
+        
+        <div class="panel-content">
+            <!-- Farm-wide statistics -->
+            <div id="summary" class="summary-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Total Area:</span>
+                    <span class="stat-value" id="total-area">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Blocks:</span>
+                    <span class="stat-value" id="total-blocks">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Trees:</span>
+                    <span class="stat-value" id="total-trees">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Farm Plant Density:</span>
+                    <span class="stat-value" id="farm-density">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Avg Bunch Weight:</span>
+                    <span class="stat-value" id="avg-bunch-weight-farm">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Avg Yield:</span>
+                    <span class="stat-value" id="avg-yield">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Est. Total Yield:</span>
+                    <span class="stat-value" id="total-yield">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">High Yield Blocks:</span>
+                    <span class="stat-value" id="high-yield-count">-</span>
+                </div>
+            </div>
+            
+            <!-- Block Details Section -->
+            <div id="blockDetailsSection" class="block-details-section">
+                <div class="block-details-header">
+                    <button id="clearSelectionBtn" class="clear-selection">✕ Clear</button>
+                </div>
+                
+                <div id="blockInfo" class="block-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Block Size:</span>
+                        <span class="detail-value" id="block-size">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Plants per Hectare:</span>
+                        <span class="detail-value" id="plants-per-hectare">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Trees:</span>
+                        <span class="detail-value" id="block-total-trees">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Avg Bunch Weight:</span>
+                        <span class="detail-value" id="avg-bunch-weight">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Est. Yield:</span>
+                        <span class="detail-value" id="block-yield">-</span>
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="font-weight: 600; font-size: var(--text-sm);">Plant Density</span>
+                            <span id="density-label" style="font-weight: 600; color: var(--accent); font-size: var(--text-sm);">-</span>
+                        </div>
+                        <div class="density-chart">
+                            <div class="density-fill" id="density-fill" style="width: 0%"></div>
+                            <div class="chart-label" id="density-chart-label">0%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="tooltip" class="tooltip" style="display: none;"></div>
+
+<script>
+// ==========================================
+// Farm Dashboard Application - v3.0 Enhanced
+// ==========================================
+
+const FarmDashboard = {
+    // State Management
+    state: {
+        geoData: null,
+        csvData: [],
+        dataMap: {},
+        selectedBlock: null,
+        selectedBlockIndex: -1,
+        blocks: [],
+        currentTransform: d3.zoomIdentity,
+        initialTransform: null,
+        isRotated: false,
+        searchHighlightedIndex: -1,
+        rotationAngle: 0
+    },
+    
+    // Configuration - WITH ELECTION MAP TIMINGS
+    config: {
+        colors: {
+            default: "#1976d2",
+            selected: "#e65100",
+            highYield: "#2e7d32"
+        },
+        thresholds: {
+            highYield: 1000,
+            labelTruncate: 12,
+            searchMinChars: 2,
+            searchMaxResults: 10
+        },
+        map: {
+            scale: 0.07,
+            verticalPositionRatio: 0.01,
+            horizontalNudgeRatio: 0.05,
+            minZoomScale: 1,
+            maxZoomScale: 8,
+            zoomPadding: 0.9,
+            zoomNudgeFactor: 0.6,
+            labelBaseFontSize: 11,
+            rotatedCenterXRatio: 0.45,
+            rotatedCenterYRatio: 0.55
+        },
+        animation: {
+            instant: 120,    // FROM ELECTION MAP
+            fast: 220,       // FROM ELECTION MAP
+            normal: 500,
+            slow: 1000,
+            zoomIn: 2400,    // FROM ELECTION MAP
+            zoomOut: 1800    // FROM ELECTION MAP
+        },
+        tooltip: {
+            throttleMs: 50,
+            offsetX: 12,
+            offsetY: -12
+        },
+        retry: {
+            maxAttempts: 3,
+            delayMs: 2000
+        }
+    },
+    
+    // DOM References
+    refs: {},
+    
+    // Performance tracking
+    performance: {
+        initStartTime: null,
+        initEndTime: null
+    },
+    
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
+    
+    async init(retries = 3) {
+        this.performance.initStartTime = performance.now();
+        console.log("🍌 Initializing Elim Farms Dashboard v3.0...");
+        
+        this.cacheDOM();
+        this.showLoading(true, "Loading farm data...");
+        
+        try {
+            const [geoData, csvData] = await Promise.all([
+                d3.json("ElimFarms.geojson"),
+                d3.csv("farm_data.csv")
+            ]);
+            
+            this.validateData(geoData, csvData);
+            
+            console.log("✓ Data loaded:", {
+                geoFeatures: geoData.features.length,
+                csvRows: csvData.length
+            });
+            
+            this.state.geoData = geoData;
+            this.state.csvData = csvData;
+            
+            this.buildDataMap();
+            
+            this.initMap();
+            this.initZoom();
+            this.initTooltip();
+            this.initEventListeners();
+            this.initSearch();
+            
+            this.drawMap();
+            this.updateSummary();
+            
+            this.showLoading(false);
+            this.hideError();
+            
+            this.performance.initEndTime = performance.now();
+            const initTime = (this.performance.initEndTime - this.performance.initStartTime).toFixed(2);
+            console.log(`✅ Dashboard initialized successfully in ${initTime}ms`);
+            
+        } catch (error) {
+            console.error("❌ Initialization error:", error);
+            this.showLoading(false);
+            
+            if (retries > 0) {
+                console.log(`🔄 Retrying... (${retries} attempts left)`);
+                this.showLoading(true, `Retrying... (${retries} attempts left)`);
+                setTimeout(() => this.init(retries - 1), this.config.retry.delayMs);
+            } else {
+                this.showError(error.message || "Failed to load farm data");
+            }
+        }
+    },
+    
+    cacheDOM() {
+        this.refs = {
+            container: d3.select("#map-container"),
+            svg: d3.select("#map"),
+            panel: d3.select("#panel"),
+            panelTitle: d3.select("#panel-title"),
+            panelSearch: d3.select("#panel-search"),
+            loading: d3.select("#loading"),
+            loadingText: d3.select("#loading-text"),
+            errorState: d3.select("#error-state"),
+            errorMessage: d3.select("#error-message"),
+            tooltip: d3.select("#tooltip"),
+            searchInput: d3.select("#block-search"),
+            searchResults: d3.select("#search-results"),
+            summaryStats: d3.select("#summary"),
+            blockDetailsSection: d3.select("#blockDetailsSection")
+        };
+    },
+    
+    validateData(geoData, csvData) {
+        if (!geoData?.features?.length) {
+            throw new Error("Invalid GeoJSON: No features found");
+        }
+        if (!csvData?.length) {
+            throw new Error("Invalid CSV: No data rows found");
+        }
+        
+        const requiredFields = ["Block Name", "Block Size", "Plants per hectare", "Average Bunch Weight"];
+        const firstRow = csvData[0];
+        
+        requiredFields.forEach(field => {
+            if (!(field in firstRow)) {
+                throw new Error(`Missing required field: ${field}`);
+            }
+        });
+    },
+    
+    buildDataMap() {
+        this.state.dataMap = {};
+        this.state.blocks = [];
+        
+        this.state.csvData.forEach((d, i) => {
+            const blockName = d["Block Name"];
+            if (!blockName || blockName.trim() === "") {
+                console.warn(`Row ${i}: Missing or empty Block Name, skipping`);
+                return;
+            }
+            this.state.dataMap[blockName] = d;
+            this.state.blocks.push(blockName);
+        });
+        
+        if (this.state.blocks.length === 0) {
+            throw new Error("No valid blocks found in data");
+        }
+        
+        console.log(`✓ Built data map: ${this.state.blocks.length} blocks`);
+    },
+    
+    // ==========================================
+    // MAP INITIALIZATION
+    // ==========================================
+    
+    initMap() {
+        const container = this.refs.container;
+        const width = container.node().clientWidth;
+        const height = container.node().clientHeight;
+        
+        const svg = this.refs.svg
+            .attr("width", width)
+            .attr("height", height);
+        
+        // Add pulse effect filter FROM ELECTION MAP
+        svg.append("defs").html(`
+            <filter id="pulseEffect" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="pulse" />
+                <feBlend in="SourceGraphic" in2="pulse" mode="screen" />
+            </filter>
+        `);
+        
+        const rotationGroup = svg.append("g").attr("id", "rotation-group");
+        const mapGroup = rotationGroup.append("g").attr("id", "map-group");
+        mapGroup.append("g").attr("id", "blocks-group");
+        mapGroup.append("g").attr("id", "labels-group");
+        
+        const projection = d3.geoIdentity().reflectY(true);
+        const bounds = d3.geoBounds(this.state.geoData);
+        
+        const panelWidth = parseInt(getComputedStyle(document.getElementById('panel')).width) || 400;
+        const availableWidth = width - panelWidth;
+        
+        const widthRatio = (bounds[1][0] - bounds[0][0]) / availableWidth;
+        const heightRatio = (bounds[1][1] - bounds[0][1]) / height;
+        const scale = this.config.map.scale / Math.max(widthRatio, heightRatio);
+        
+        const horizontalNudge = availableWidth * this.config.map.horizontalNudgeRatio;
+        const centerX = (availableWidth / 2) + horizontalNudge;
+        const centerY = height * this.config.map.verticalPositionRatio;
+        
+        projection.scale(scale).translate([centerX, centerY]);
+        
+        this.state.projection = projection;
+        this.state.path = d3.geoPath().projection(projection);
+        this.state.width = width;
+        this.state.height = height;
+        this.state.availableWidth = availableWidth;
+        this.state.initialTransform = d3.zoomIdentity;
+        this.state.dimensions = { width, height, availableWidth, panelWidth };
+        
+        console.log("✓ Map initialized:", {
+            dimensions: `${width}x${height}`,
+            availableWidth,
+            scale: scale.toFixed(2),
+            center: `(${centerX.toFixed(1)}, ${centerY.toFixed(1)})`
+        });
+    },
+    
+    initZoom() {
+        const svg = this.refs.svg;
+        
+        this.state.zoom = d3.zoom()
+            .scaleExtent([this.config.map.minZoomScale, this.config.map.maxZoomScale])
+            .on("zoom", (event) => {
+                this.state.currentTransform = event.transform;
+                d3.select("#map-group").attr("transform", event.transform);
+                this.updateLabelScale(event.transform.k);
+            });
+        
+        svg.call(this.state.zoom);
+        
+        requestAnimationFrame(() => {
+            svg.call(this.state.zoom.transform, this.state.initialTransform);
+        });
+    },
+    
+    initTooltip() {
+        // Tooltip already cached
+    },
+    
+    // ==========================================
+    // SEARCH FUNCTIONALITY
+    // ==========================================
+    
+    initSearch() {
+        const searchInput = this.refs.searchInput;
+        const resultsContainer = this.refs.searchResults;
+        
+        searchInput.on("input", () => {
+            const term = searchInput.property("value").toLowerCase().trim();
+            this.state.searchHighlightedIndex = -1;
+            
+            if (term.length < this.config.thresholds.searchMinChars) {
+                resultsContainer.classed("visible", false);
+                return;
+            }
+            
+            const matches = this.state.blocks
+                .filter(b => b.toLowerCase().includes(term))
+                .slice(0, this.config.thresholds.searchMaxResults);
+            
+            if (matches.length === 0) {
+                resultsContainer.classed("visible", false);
+                return;
+            }
+            
+            this.renderSearchResults(matches);
+            resultsContainer.classed("visible", true);
+        });
+        
+        searchInput.on("keydown", (event) => {
+            const items = resultsContainer.selectAll(".search-result-item").nodes();
+            if (!items.length) return;
+            
+            switch(event.key) {
+                case "ArrowDown":
+                    event.preventDefault();
+                    this.state.searchHighlightedIndex = Math.min(
+                        this.state.searchHighlightedIndex + 1, 
+                        items.length - 1
+                    );
+                    this.updateSearchHighlight(items);
+                    break;
+                case "ArrowUp":
+                    event.preventDefault();
+                    this.state.searchHighlightedIndex = Math.max(
+                        this.state.searchHighlightedIndex - 1, 
+                        0
+                    );
+                    this.updateSearchHighlight(items);
+                    break;
+                case "Enter":
+                    event.preventDefault();
+                    if (this.state.searchHighlightedIndex >= 0) {
+                        const selected = d3.select(items[this.state.searchHighlightedIndex]).datum();
+                        this.selectBlockFromSearch(selected);
+                        this.clearSearch();
+                    }
+                    break;
+                case "Escape":
+                    this.clearSearch();
+                    searchInput.node().blur();
+                    break;
+            }
+        });
+        
+        document.addEventListener("click", (e) => {
+            if (!e.target.closest(".panel-search")) {
+                resultsContainer.classed("visible", false);
+            }
+        });
+    },
+    
+    renderSearchResults(matches) {
+        const resultsContainer = this.refs.searchResults;
+        resultsContainer.selectAll("*").remove();
+        
+        resultsContainer.selectAll(".search-result-item")
+            .data(matches)
+            .enter()
+            .append("div")
+            .attr("class", "search-result-item")
+            .text(d => d)
+            .on("click", (event, d) => {
+                this.selectBlockFromSearch(d);
+                this.clearSearch();
+            });
+    },
+    
+    updateSearchHighlight(items) {
+        d3.selectAll(items)
+            .classed("highlighted", (d, i) => i === this.state.searchHighlightedIndex);
+    },
+    
+    selectBlockFromSearch(blockName) {
+        const feature = this.state.geoData.features.find(f => 
+            f.properties?.Field_Name === blockName
+        );
+        
+        if (feature) {
+            this.selectBlock(blockName);
+            this.zoomToBlock(feature);
+        }
+    },
+    
+    clearSearch() {
+        this.refs.searchInput.property("value", "");
+        this.refs.searchResults.classed("visible", false);
+    },
+    
+    // ==========================================
+    // EVENT LISTENERS
+    // ==========================================
+    
+    initEventListeners() {
+        d3.select("#zoom-in").on("click", () => {
+            this.refs.svg.transition()
+                .duration(this.config.animation.fast)
+                .call(this.state.zoom.scaleBy, 1.5);
+        });
+        
+        d3.select("#zoom-out").on("click", () => {
+            this.refs.svg.transition()
+                .duration(this.config.animation.fast)
+                .call(this.state.zoom.scaleBy, 0.75);
+        });
+        
+        d3.select("#reset-view").on("click", () => this.resetView());
+        d3.select("#rotate-view").on("click", () => this.toggleRotation());
+        
+        d3.select("#prev-block").on("click", () => this.selectPreviousBlock());
+        d3.select("#next-block").on("click", () => this.selectNextBlock());
+        d3.select("#clearSelectionBtn").on("click", () => this.resetSelection());
+        d3.select("#retry-btn").on("click", () => this.init());
+        
+        this.keyHandler = (event) => {
+            if (document.activeElement?.id === "block-search") {
+                return;
+            }
+            
+            switch(event.key) {
+                case "ArrowLeft":
+                    event.preventDefault();
+                    this.selectPreviousBlock();
+                    break;
+                case "ArrowRight":
+                    event.preventDefault();
+                    this.selectNextBlock();
+                    break;
+                case "Escape":
+                    this.resetSelection();
+                    break;
+                case "r":
+                case "R":
+                    if (event.ctrlKey || event.metaKey) {
+                        event.preventDefault();
+                        this.toggleRotation();
+                    }
+                    break;
+                case "f":
+                case "F":
+                    if (event.ctrlKey || event.metaKey) {
+                        event.preventDefault();
+                        this.refs.searchInput.node().focus();
+                    }
+                    break;
+            }
+        };
+        
+        document.addEventListener("keydown", this.keyHandler);
+        
+        this.resizeHandler = this.debounce(() => this.handleResize(), 250);
+        window.addEventListener("resize", this.resizeHandler);
+    },
+    
+    // ==========================================
+    // ROTATION
+    // ==========================================
+    
+    toggleRotation() {
+        const rotationGroup = d3.select("#rotation-group");
+        const btn = d3.select("#rotate-view");
+        
+        this.state.isRotated = !this.state.isRotated;
+        this.state.rotationAngle = this.state.isRotated ? 90 : 0;
+        
+        const cx = this.state.availableWidth * this.config.map.rotatedCenterXRatio;
+        const cy = this.state.height * this.config.map.rotatedCenterYRatio;
+        
+        if (this.state.isRotated) {
+            rotationGroup
+                .transition()
+                .duration(this.config.animation.normal)
+                .attr("transform", `rotate(90, ${cx}, ${cy})`);
+            
+            if (this.state.labelSelection && !this.state.labelSelection.empty()) {
+                this.state.labelSelection
+                    .transition()
+                    .duration(this.config.animation.normal)
+                    .attr("transform", d => {
+                        const [x, y] = this.state.path.centroid(d);
+                        return `rotate(-90, ${x}, ${y})`;
+                    });
+            }
+            
+            btn.classed("rotated", true).text("↺");
+        } else {
+            rotationGroup
+                .transition()
+                .duration(this.config.animation.normal)
+                .attr("transform", "rotate(0, 0, 0)");
+            
+            if (this.state.labelSelection && !this.state.labelSelection.empty()) {
+                this.state.labelSelection
+                    .transition()
+                    .duration(this.config.animation.normal)
+                    .attr("transform", null);
+            }
+            
+            btn.classed("rotated", false).text("↻");
+        }
+    },
+    
+    // ==========================================
+    // MAP DRAWING
+    // ==========================================
+    
+    drawMap() {
+        const blocksGroup = d3.select("#blocks-group");
+        const labelsGroup = d3.select("#labels-group");
+        
+        blocksGroup.selectAll("*").remove();
+        labelsGroup.selectAll("*").remove();
+        
+        const validFeatures = this.state.geoData.features.filter(f => 
+            f.properties?.Field_Name && this.state.dataMap[f.properties.Field_Name]
+        );
+        
+        if (validFeatures.length === 0) {
+            throw new Error("No valid features with matching data");
+        }
+        
+        console.log(`✓ Drawing ${validFeatures.length} blocks`);
+        
+        this.state.blockSelection = blocksGroup.selectAll(".block")
+            .data(validFeatures, d => d.properties.Field_Name)
+            .enter()
+            .append("path")
+            .attr("class", "block")
+            .attr("d", this.state.path)
+            .attr("fill", d => this.getBlockColor(d))
+            .on("click", (e, d) => this.onBlockClick(e, d))
+            .on("mouseover", (e, d) => this.onBlockMouseOver(e, d))
+            .on("mouseout", (e, d) => this.onBlockMouseOut(e, d));
+        
+        this.state.labelSelection = labelsGroup.selectAll(".block-label")
+            .data(validFeatures, d => d.properties.Field_Name)
+            .enter()
+            .append("text")
+            .attr("class", "block-label")
+            .attr("font-size", this.config.map.labelBaseFontSize)
+            .text(d => this.truncateLabel(d.properties.Field_Name))
+            .attr("x", d => this.state.path.centroid(d)[0])
+            .attr("y", d => this.state.path.centroid(d)[1])
+            .attr("dy", "0.35em");
+    },
+    
+    truncateLabel(name) {
+        if (!name) return "";
+        return name.length > this.config.thresholds.labelTruncate 
+            ? name.substring(0, this.config.thresholds.labelTruncate - 2) + "..." 
+            : name;
+    },
+    
+    redrawMap() {
+        if (!this.state.blockSelection || this.state.blockSelection.empty()) return;
+        
+        this.state.blockSelection.attr("d", this.state.path);
+        
+        if (this.state.labelSelection && !this.state.labelSelection.empty()) {
+            this.state.labelSelection
+                .attr("x", d => this.state.path.centroid(d)[0])
+                .attr("y", d => this.state.path.centroid(d)[1]);
+            
+            if (this.state.isRotated) {
+                this.state.labelSelection.attr("transform", d => {
+                    const [x, y] = this.state.path.centroid(d);
+                    return `rotate(-90, ${x}, ${y})`;
+                });
+            }
+        }
+    },
+    
+    // ==========================================
+    // COLOR LOGIC
+    // ==========================================
+    
+    getBlockColor(feature) {
+        const fieldName = feature.properties?.Field_Name;
+        if (!fieldName) return this.config.colors.default;
+        
+        const blockData = this.state.dataMap[fieldName];
+        if (!blockData) return this.config.colors.default;
+        
+        const plantsPerHectare = parseFloat(blockData["Plants per hectare"]) || 0;
+        const avgBunchWeight = parseFloat(blockData["Average Bunch Weight"]) || 0;
+        const estimatedYield = plantsPerHectare * avgBunchWeight;
+        
+        if (fieldName === this.state.selectedBlock) {
+            return this.config.colors.selected;
+        } else if (estimatedYield > this.config.thresholds.highYield) {
+            return this.config.colors.highYield;
+        }
+        
+        return this.config.colors.default;
+    },
+    
+    // ==========================================
+    // BLOCK INTERACTIONS - WITH PULSE EFFECT
+    // ==========================================
+    
+    onBlockClick(event, d) {
+        event.stopPropagation();
+        const fieldName = d.properties.Field_Name;
+        
+        if (this.state.selectedBlock === fieldName) {
+            this.resetSelection();
+            return;
+        }
+        
+        this.selectBlock(fieldName);
+        this.zoomToBlock(d);
+        
+        // PULSE EFFECT FROM ELECTION MAP
+        d3.select(event.currentTarget)
+            .transition()
+            .duration(this.config.animation.slow)
+            .attr("filter", "url(#pulseEffect)")
+            .transition()
+            .duration(this.config.animation.slow)
+            .attr("filter", null);
+    },
+    
+    onBlockMouseOver(event, d) {
+        const fieldName = d.properties.Field_Name;
+        const blockData = this.state.dataMap[fieldName];
+        
+        if (!blockData) return;
+        
+        if (fieldName !== this.state.selectedBlock) {
+            d3.select(event.currentTarget).raise();
+        }
+        
+        this.throttledShowTooltip(event, d);
+    },
+    
+    onBlockMouseOut(event, d) {
+        this.hideTooltip();
+    },
+    
+    throttledShowTooltip: (function() {
+        let lastCall = 0;
+        return function(event, d) {
+            const now = Date.now();
+            if (now - lastCall < this.config.tooltip.throttleMs) return;
+            lastCall = now;
+            this.showTooltip(event, d);
+        };
+    })(),
+    
+    showTooltip(event, feature) {
+        const fieldName = feature.properties.Field_Name;
+        const blockData = this.state.dataMap[fieldName];
+        
+        const plantsPerHectare = parseFloat(blockData["Plants per hectare"]) || 0;
+        const avgBunchWeight = parseFloat(blockData["Average Bunch Weight"]) || 0;
+        const blockSize = parseFloat(blockData["Block Size"]) || 0;
+        const totalTrees = Math.round(plantsPerHectare * blockSize);
+        const estimatedYield = (plantsPerHectare * avgBunchWeight).toFixed(1);
+        
+        const tooltipHtml = `
+            <div style="font-weight: 600; margin-bottom: 6px; font-size: 14px;">${fieldName}</div>
+            <div style="margin-bottom: 2px;">📏 ${blockSize.toFixed(1)} ha</div>
+            <div style="margin-bottom: 2px;">🌱 ${plantsPerHectare.toLocaleString()}/ha</div>
+            <div style="margin-bottom: 2px;">🌴 ${totalTrees.toLocaleString()} trees</div>
+            <div style="margin-bottom: 2px;">⚖️ ${avgBunchWeight} kg/bunch</div>
+            <div>📊 ${estimatedYield} kg/ha est.</div>
+        `;
+        
+        this.refs.tooltip
+            .html(tooltipHtml)
+            .style("display", "block")
+            .style("left", (event.pageX + this.config.tooltip.offsetX) + "px")
+            .style("top", (event.pageY + this.config.tooltip.offsetY) + "px");
+    },
+    
+    hideTooltip() {
+        this.refs.tooltip.style("display", "none");
+    },
+    
+    // ==========================================
+    // SELECTION LOGIC - PANEL SWITCHING LIKE ELECTION MAP
+    // ==========================================
+    
+    selectBlock(fieldName) {
+        if (this.state.selectedBlock && this.state.blockSelection) {
+            this.state.blockSelection
+                .filter(d => d.properties.Field_Name === this.state.selectedBlock)
+                .classed("selected", false);
+        }
+        
+        this.state.selectedBlock = fieldName;
+        this.state.selectedBlockIndex = this.state.blocks.indexOf(fieldName);
+        
+        if (this.state.blockSelection) {
+            this.state.blockSelection
+                .filter(d => d.properties.Field_Name === fieldName)
+                .classed("selected", true)
+                .raise();
+            
+            this.state.blockSelection
+                .filter(d => d.properties.Field_Name !== fieldName)
+                .classed("faded", true);
+            
+            this.state.blockSelection.attr("fill", d => this.getBlockColor(d));
+        }
+        
+        // PANEL SWITCHING LIKE ELECTION MAP
+        this.refs.panelTitle.html(fieldName); // Change header to block name
+        this.refs.panelSearch.classed("hidden", true); // Hide search
+        this.refs.summaryStats.classed("hidden", true); // Hide summary
+        this.refs.blockDetailsSection.classed("visible", true); // Show block details
+        
+        this.updateBlockDetails();
+        this.updateNavigationButtons();
+        
+        // Hide labels
+        if (this.state.labelSelection) {
+            this.state.labelSelection.classed("hidden", true);
+        }
+    },
+    
+    resetSelection() {
+        if (this.state.blockSelection) {
+            this.state.blockSelection.classed("selected", false);
+            this.state.blockSelection.classed("faded", false);
+            this.state.blockSelection.attr("fill", d => this.getBlockColor(d));
+        }
+        
+        this.state.selectedBlock = null;
+        this.state.selectedBlockIndex = -1;
+        
+        // PANEL SWITCHING LIKE ELECTION MAP
+        this.refs.panelTitle.html('🍌 Elim Farms Dashboard <span style="font-size: 14px; opacity: 0.8; font-weight: 400;">v3.0</span>');
+        this.refs.panelSearch.classed("hidden", false); // Show search
+        this.refs.summaryStats.classed("hidden", false); // Show summary
+        this.refs.blockDetailsSection.classed("visible", false); // Hide block details
+        
+        this.resetBlockDetails();
+        
+        if (this.state.labelSelection) {
+            this.state.labelSelection.classed("hidden", false);
+        }
+        
+        this.updateNavigationButtons();
+        
+        // Reset zoom - USING ELECTION MAP TIMING
+        this.refs.svg.transition()
+            .duration(this.config.animation.zoomOut)
+            .call(this.state.zoom.transform, this.state.initialTransform);
+    },
+    
+    resetView() {
+        if (this.state.isRotated) {
+            this.toggleRotation();
+        }
+        this.refs.svg.transition()
+            .duration(this.config.animation.normal)
+            .call(this.state.zoom.transform, this.state.initialTransform);
+        this.resetSelection();
+    },
+    
+    // ==========================================
+    // ZOOM TO BLOCK - ELECTION MAP TIMING
+    // ==========================================
+    
+    zoomToBlock(feature) {
+        const bounds = this.state.path.bounds(feature);
+        const dx = bounds[1][0] - bounds[0][0];
+        const dy = bounds[1][1] - bounds[0][1];
+        const x = (bounds[0][0] + bounds[1][0]) / 2;
+        const y = (bounds[0][1] + bounds[1][1]) / 2;
+        
+        const scale = Math.max(
+            this.config.map.minZoomScale, 
+            Math.min(
+                this.config.map.maxZoomScale, 
+                this.config.map.zoomPadding / Math.max(
+                    dx / (this.state.availableWidth * 0.6),
+                    dy / this.state.height
+                )
+            )
+        );
+        
+        const nudge = this.state.dimensions.panelWidth * this.config.map.zoomNudgeFactor;
+        const translate = [
+            this.state.availableWidth * 0.65 - scale * x + nudge,
+            this.state.height / 2 - scale * y
+        ];
+        
+        // USE ELECTION MAP ZOOM IN TIMING
+        this.refs.svg.transition()
+            .duration(this.config.animation.zoomIn)
+            .call(
+                this.state.zoom.transform, 
+                d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+            );
+    },
+    
+    // ==========================================
+    // NAVIGATION
+    // ==========================================
+    
+    selectPreviousBlock() {
+        if (this.state.blocks.length === 0) return;
+        
+        let newIndex;
+        if (this.state.selectedBlockIndex === -1) {
+            newIndex = this.state.blocks.length - 1;
+        } else {
+            newIndex = (this.state.selectedBlockIndex - 1 + this.state.blocks.length) % this.state.blocks.length;
+        }
+        
+        this.navigateToBlock(newIndex);
+    },
+    
+    selectNextBlock() {
+        if (this.state.blocks.length === 0) return;
+        
+        let newIndex;
+        if (this.state.selectedBlockIndex === -1) {
+            newIndex = 0;
+        } else {
+            newIndex = (this.state.selectedBlockIndex + 1) % this.state.blocks.length;
+        }
+        
+        this.navigateToBlock(newIndex);
+    },
+    
+    navigateToBlock(index) {
+        const blockName = this.state.blocks[index];
+        const feature = this.state.geoData.features.find(f => 
+            f.properties?.Field_Name === blockName
+        );
+        
+        if (feature) {
+            this.selectBlock(blockName);
+            this.zoomToBlock(feature);
+        }
+    },
+    
+    // ==========================================
+    // UI UPDATES
+    // ==========================================
+    
+    updateNavigationButtons() {
+        const hasBlocks = this.state.blocks.length > 0;
+        d3.select("#prev-block").attr("disabled", hasBlocks ? null : true);
+        d3.select("#next-block").attr("disabled", hasBlocks ? null : true);
+    },
+    
+    updateLabelScale(scale) {
+        if (!this.state.labelSelection || this.state.labelSelection.empty()) return;
+        const labelScale = 1 / scale;
+        this.state.labelSelection.attr("font-size", this.config.map.labelBaseFontSize * labelScale);
+    },
+    
+    // ==========================================
+    // DATA CALCULATIONS & SUMMARY
+    // ==========================================
+    
+    updateSummary() {
+        const data = this.state.csvData;
+        
+        const totalArea = data.reduce((sum, d) => sum + (parseFloat(d["Block Size"]) || 0), 0);
+        const totalBlocks = data.length;
+        
+        let totalTrees = 0;
+        let weightedBunchWeight = 0;
+        let totalWeightedArea = 0;
+        let totalYield = 0;
+        let totalEstimatedYield = 0;
+        let blocksWithData = 0;
+        let highYieldCount = 0;
+        
+        data.forEach(d => {
+            const plants = parseFloat(d["Plants per hectare"]) || 0;
+            const weight = parseFloat(d["Average Bunch Weight"]) || 0;
+            const size = parseFloat(d["Block Size"]) || 0;
+            
+            totalTrees += plants * size;
+            weightedBunchWeight += weight * size;
+            totalWeightedArea += size;
+            
+            if (plants && weight) {
+                const blockYield = plants * weight;
+                totalYield += blockYield;
+                totalEstimatedYield += blockYield * size;
+                blocksWithData++;
+                
+                if (blockYield > this.config.thresholds.highYield) {
+                    highYieldCount++;
+                }
+            }
+        });
+        
+        const farmDensity = totalArea > 0 ? totalTrees / totalArea : 0;
+        const avgBunchWeight = totalWeightedArea > 0 ? weightedBunchWeight / totalWeightedArea : 0;
+        const avgYield = blocksWithData > 0 ? totalYield / blocksWithData : 0;
+        
+        const updates = {
+            "#total-area": `${totalArea.toFixed(1)} ha`,
+            "#total-blocks": totalBlocks.toString(),
+            "#total-trees": Math.round(totalTrees).toLocaleString(),
+            "#farm-density": `${Math.round(farmDensity).toLocaleString()} plants/ha`,
+            "#avg-bunch-weight-farm": `${avgBunchWeight.toFixed(1)} kg`,
+            "#avg-yield": `${avgYield.toFixed(1)} kg/ha`,
+            "#total-yield": `${Math.round(totalEstimatedYield).toLocaleString()} kg`,
+            "#high-yield-count": highYieldCount.toString()
+        };
+        
+        Object.entries(updates).forEach(([selector, value]) => {
+            d3.select(selector).text(value);
+        });
+    },
+    
+    updateBlockDetails() {
+        if (!this.state.selectedBlock) return;
+        
+        const blockData = this.state.dataMap[this.state.selectedBlock];
+        if (!blockData) return;
+        
+        const plantsPerHectare = parseFloat(blockData["Plants per hectare"]) || 0;
+        const avgBunchWeight = parseFloat(blockData["Average Bunch Weight"]) || 0;
+        const blockSize = parseFloat(blockData["Block Size"]) || 0;
+        const totalTrees = plantsPerHectare * blockSize;
+        const estimatedYield = plantsPerHectare * avgBunchWeight;
+        
+        const updates = {
+            "#block-size": `${blockSize.toFixed(1)} ha`,
+            "#plants-per-hectare": plantsPerHectare.toLocaleString(),
+            "#block-total-trees": Math.round(totalTrees).toLocaleString(),
+            "#avg-bunch-weight": `${avgBunchWeight} kg`,
+            "#block-yield": `${estimatedYield.toFixed(1)} kg/ha`
+        };
+        
+        Object.entries(updates).forEach(([selector, value]) => {
+            d3.select(selector).text(value);
+        });
+        
+        const maxPlants = Math.max(...this.state.csvData.map(d => 
+            parseFloat(d["Plants per hectare"]) || 0
+        ));
+        
+        const densityPercent = maxPlants > 0 ? (plantsPerHectare / maxPlants) * 100 : 0;
+        
+        d3.select("#density-fill")
+            .transition()
+            .duration(this.config.animation.slow)
+            .style("width", `${densityPercent}%`);
+        
+        d3.select("#density-label").text(`${plantsPerHectare.toLocaleString()} plants/ha`);
+        d3.select("#density-chart-label").text(`${Math.round(densityPercent)}% of max`);
+    },
+    
+    resetBlockDetails() {
+        const resetValues = {
+            "#block-size": "-",
+            "#plants-per-hectare": "-",
+            "#block-total-trees": "-",
+            "#avg-bunch-weight": "-",
+            "#block-yield": "-",
+            "#density-label": "-",
+            "#density-chart-label": "0%"
+        };
+        
+        Object.entries(resetValues).forEach(([selector, value]) => {
+            d3.select(selector).text(value);
+        });
+        
+        d3.select("#density-fill").style("width", "0%");
+    },
+    
+    // ==========================================
+    // LOADING & ERROR STATES
+    // ==========================================
+    
+    showLoading(show, text = "Loading...") {
+        if (!this.refs?.loading) {
+            console.warn("showLoading called before DOM cached");
+            return;
+        }
+        this.refs.loading.style("display", show ? "flex" : "none");
+        if (this.refs.loadingText) {
+            this.refs.loadingText.text(text);
+        }
+    },
+    
+    showError(message) {
+        if (!this.refs?.errorState) {
+            console.error("Error:", message);
+            alert("Error: " + message);
+            return;
+        }
+        this.refs.errorState.style("display", "block");
+        this.refs.errorMessage.text(message || "An error occurred. Please try again.");
+    },
+    
+    hideError() {
+        this.refs?.errorState?.style("display", "none");
+    },
+    
+    // ==========================================
+    // RESIZE HANDLER
+    // ==========================================
+    
+    handleResize() {
+        const container = this.refs.container;
+        const width = container.node().clientWidth;
+        const height = container.node().clientHeight;
+        const panelWidth = parseInt(getComputedStyle(document.getElementById('panel')).width) || 400;
+        const availableWidth = width - panelWidth;
+        
+        this.state.dimensions = { width, height, availableWidth, panelWidth };
+        this.state.width = width;
+        this.state.height = height;
+        this.state.availableWidth = availableWidth;
+        
+        this.refs.svg.attr("width", width).attr("height", height);
+        
+        const horizontalNudge = availableWidth * this.config.map.horizontalNudgeRatio;
+        const centerX = (availableWidth / 2) + horizontalNudge;
+        const centerY = height * this.config.map.verticalPositionRatio;
+        this.state.projection.translate([centerX, centerY]);
+        
+        this.redrawMap();
+    },
+    
+    // ==========================================
+    // UTILITIES
+    // ==========================================
+    
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func.apply(this, args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    },
+    
+    // ==========================================
+    // CLEANUP
+    // ==========================================
+    
+    destroy() {
+        console.log("🧹 Cleaning up dashboard...");
+        window.removeEventListener("resize", this.resizeHandler);
+        document.removeEventListener("keydown", this.keyHandler);
+        d3.selectAll("*").interrupt();
+        console.log("✅ Cleanup complete");
+    }
+};
+
+// ==========================================
+// INITIALIZATION
+// ==========================================
+
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", () => {
+        FarmDashboard.init();
+    });
+} else {
+    FarmDashboard.init();
+}
+
+window.FarmDashboard = FarmDashboard;
+</script>
+</body>
+</html>
