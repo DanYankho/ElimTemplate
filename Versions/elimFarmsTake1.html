@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elim Farms Dashboard</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<style>
+:root {
+    --accent: #2c7a2c; /* Farm green accent */
+    --ui: #333;
+    --muted: #777;
+    --panel-width: 400px;
+    --safe-margin: 3%;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f8f9fa;
+    color: #333;
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* Header */
+.header {
+    position: absolute;
+    top: var(--safe-margin);
+    left: var(--safe-margin);
+    z-index: 100;
+    pointer-events: none;
+}
+
+.header h2 {
+    margin: 0;
+    padding: 15px 25px;
+    font-size: 32px;
+    color: white;
+    background: var(--accent);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    pointer-events: auto;
+    cursor: default;
+    font-weight: 600;
+}
+
+/* Main container */
+#container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+/* Map container */
+#map-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+svg#map {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #f5f5f5;
+}
+
+/* Farm block styles */
+.block {
+    stroke: #555;
+    stroke-width: 1px;
+    cursor: pointer;
+    transition: stroke-width 0.2s ease, filter 0.2s ease;
+}
+
+.block:hover {
+    stroke-width: 2px;
+    filter: brightness(1.1);
+}
+
+.block.selected {
+    stroke-width: 3px;
+    stroke: var(--accent);
+    filter: drop-shadow(0 2px 8px rgba(44, 122, 44, 0.3));
+}
+
+.block-label {
+    font-size: 11px;
+    font-weight: 600;
+    fill: #333;
+    text-anchor: middle;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 0.3s ease;
+}
+
+.block-label.hidden {
+    opacity: 0;
+}
+
+/* Panel */
+#panel {
+    width: var(--panel-width);
+    background: white;
+    padding: 0;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.panel-content {
+    padding: 25px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.panel-header {
+    background: var(--accent);
+    color: white;
+    padding: 20px 25px;
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.panel-subheader {
+    color: var(--accent);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 20px 0 10px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+}
+
+/* Farm summary stats - expanded */
+.summary-stats {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.stat-value {
+    color: #333;
+    font-weight: 600;
+}
+
+/* Block details section - hidden by default */
+.block-details-section {
+    margin-top: 25px;
+    border-top: 2px solid var(--accent);
+    padding-top: 10px;
+    display: none;
+}
+
+.block-details-section.visible {
+    display: block;
+}
+
+.block-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.block-details-title {
+    color: var(--accent);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.clear-selection {
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.clear-selection:hover {
+    background: var(--accent);
+    color: white;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s;
+}
+
+.detail-row:hover {
+    background-color: #f8f9fa;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    color: #555;
+    font-weight: 500;
+    flex: 1;
+}
+
+.detail-value {
+    color: #333;
+    font-weight: 600;
+    flex: 1;
+    text-align: right;
+}
+
+/* Chart for plant density */
+.density-chart {
+    width: 100%;
+    height: 80px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    margin: 15px 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.density-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #a8e6a8, var(--accent));
+    border-radius: 4px;
+    transition: width 1s ease;
+}
+
+.chart-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #333;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* Loading indicator */
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255,255,255,0.95);
+    padding: 20px 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(44, 122, 44, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Tooltip */
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    max-width: 300px;
+    backdrop-filter: blur(4px);
+}
+
+.tooltip:after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+/* Navigation buttons */
+.navigation-buttons {
+    position: absolute;
+    right: var(--safe-margin);
+    bottom: var(--safe-margin);
+    display: flex;
+    gap: 10px;
+    z-index: 90;
+}
+
+.nav-button {
+    background: white;
+    color: var(--accent);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+}
+
+.nav-button:hover {
+    background: var(--accent);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.nav-button:active {
+    transform: translateY(0);
+}
+
+.nav-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    background: #eee;
+    color: #999;
+}
+
+/* Zoom controls */
+.zoom-controls {
+    position: absolute;
+    right: var(--safe-margin);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 90;
+}
+
+.zoom-button {
+    background: white;
+    color: var(--accent);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+}
+
+.zoom-button:hover {
+    background: var(--accent);
+    color: white;
+}
+
+/* Legend */
+.legend {
+    position: absolute;
+    left: var(--safe-margin);
+    bottom: var(--safe-margin);
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 90;
+    max-width: 200px;
+}
+
+.legend-title {
+    margin: 0 0 10px 0;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin-right: 8px;
+}
+
+.legend-text {
+    font-size: 12px;
+    color: #555;
+}
+</style>
+</head>
+
+<body>
+<div class="header">
+    <h2>🍌 Elim Farms Dashboard <span style="font-size: 12px; opacity: 0.7;">v2.0</span></h2>
+</div>
+
+<div id="container">
+    <div id="map-container">
+        <svg id="map"></svg>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-title">Block Status</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #90caf9;"></div>
+                <div class="legend-text">Normal</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff9800;"></div>
+                <div class="legend-text">Selected</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #4caf50;"></div>
+                <div class="legend-text">High Yield</div>
+            </div>
+        </div>
+        
+        <!-- Zoom controls -->
+        <div class="zoom-controls">
+            <button class="zoom-button" id="zoom-in" title="Zoom In">+</button>
+            <button class="zoom-button" id="zoom-out" title="Zoom Out">−</button>
+            <button class="zoom-button" id="reset-view" title="Reset View">↺</button>
+        </div>
+        
+        <!-- Navigation -->
+        <div class="navigation-buttons">
+            <button class="nav-button" id="prev-block" title="Previous Block">←</button>
+            <button class="nav-button" id="next-block" title="Next Block">→</button>
+        </div>
+        
+        <!-- Loading -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="loading-spinner"></div>
+            <span>Loading farm data...</span>
+        </div>
+    </div>
+    
+    <!-- Panel -->
+    <div id="panel">
+        <h3 class="panel-header">Farm Summary</h3>
+        <div class="panel-content">
+            <!-- Farm-wide statistics - always visible, expanded with more metrics -->
+            <div id="summary" class="summary-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Total Area:</span>
+                    <span class="stat-value" id="total-area">0 ha</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Blocks:</span>
+                    <span class="stat-value" id="total-blocks">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Trees:</span>
+                    <span class="stat-value" id="total-trees">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Farm Plant Density:</span>
+                    <span class="stat-value" id="farm-density">0 plants/ha</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Avg Bunch Weight:</span>
+                    <span class="stat-value" id="avg-bunch-weight-farm">0 kg</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Avg Yield:</span>
+                    <span class="stat-value" id="avg-yield">0 kg/ha</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Est. Total Yield:</span>
+                    <span class="stat-value" id="total-yield">0 kg</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">High Yield Blocks:</span>
+                    <span class="stat-value" id="high-yield-count">0</span>
+                </div>
+            </div>
+            
+            <!-- Block Details Section - Only visible when a block is selected -->
+            <div id="blockDetailsSection" class="block-details-section">
+                <div class="block-details-header">
+                    <h4 class="block-details-title">Selected Block</h4>
+                    <button id="clearSelectionBtn" class="clear-selection">✕ Clear</button>
+                </div>
+                
+                <div id="blockInfo" class="block-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Block Name:</span>
+                        <span class="detail-value" id="block-name">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Block Size:</span>
+                        <span class="detail-value" id="block-size">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Plants per Hectare:</span>
+                        <span class="detail-value" id="plants-per-hectare">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Trees:</span>
+                        <span class="detail-value" id="block-total-trees">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Avg Bunch Weight:</span>
+                        <span class="detail-value" id="avg-bunch-weight">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Est. Yield:</span>
+                        <span class="detail-value" id="block-yield">-</span>
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="font-weight: 600;">Plant Density</span>
+                            <span id="density-label" style="font-weight: 600; color: var(--accent);">0 plants/ha</span>
+                        </div>
+                        <div class="density-chart">
+                            <div class="density-fill" id="density-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="tooltip" class="tooltip" style="display: none;"></div>
+
+<script>
+// Main application state
+let farmData = {
+    geoData: null,
+    csvData: [],
+    dataMap: {},
+    selectedBlock: null,
+    selectedBlockIndex: -1,
+    blocks: [],
+    zoom: null,
+    tooltip: null,
+    currentTransform: d3.zoomIdentity,
+    initialTransform: null // Store the initial map transform
+};
+
+// Configuration
+const config = {
+    defaultFill: "#90caf9",
+    selectedFill: "#ff9800",
+    highYieldFill: "#4caf50",
+    highYieldThreshold: 1000, // kg/ha threshold for high yield
+    labelFontSize: 11,
+    safeMargin: 30
+};
+
+// Initialize the application
+async function init() {
+    console.log("🍌 Initializing Elim Farms Dashboard v2.0...");
+    showLoading(true);
+    
+    try {
+        // Load data
+        console.log("Loading data files...");
+        const [geoData, csvData] = await Promise.all([
+            d3.json("ElimFarms.geojson"),
+            d3.csv("farm_data.csv")
+        ]);
+        
+        console.log("Data loaded successfully:", {
+            geoFeatures: geoData.features.length,
+            csvRows: csvData.length
+        });
+        
+        farmData.geoData = geoData;
+        farmData.csvData = csvData;
+        
+        // Create lookup map
+        farmData.dataMap = {};
+        csvData.forEach(d => {
+            farmData.dataMap[d["Block Name"]] = d;
+            // Store block references
+            farmData.blocks.push(d["Block Name"]);
+        });
+        
+        // Initialize visualization
+        console.log("Initializing map...");
+        initMap();
+        console.log("Initializing zoom...");
+        initZoom();
+        console.log("Initializing tooltip...");
+        initTooltip();
+        console.log("Initializing event listeners...");
+        initEventListeners();
+        
+        // Draw the map
+        console.log("Drawing map...");
+        drawMap();
+        console.log("Updating summary...");
+        updateSummary();
+        
+        // Hide block details section initially
+        hideBlockDetailsSection();
+        
+        showLoading(false);
+        console.log("✅ Dashboard initialized successfully!");
+        
+    } catch (error) {
+        console.error("Error loading data:", error);
+        showLoading(false);
+        alert("Error loading farm data. Please check console for details.");
+    }
+}
+
+// Initialize map container
+function initMap() {
+    const container = d3.select("#map-container");
+    const width = container.node().clientWidth;
+    const height = container.node().clientHeight;
+    
+    const svg = d3.select("#map")
+        .attr("width", width)
+        .attr("height", height);
+    
+    // Create map group for zoom
+    const mapGroup = svg.append("g").attr("id", "map-group");
+    
+    // Create sub-groups for blocks and labels within map-group
+    mapGroup.append("g").attr("id", "blocks-group");
+    mapGroup.append("g").attr("id", "labels-group");
+    
+    // Set up projection
+    const projection = d3.geoIdentity().reflectY(true);
+    const bounds = d3.geoBounds(farmData.geoData);
+    
+    // Account for panel width when calculating available space
+    const panelWidth = 400; // Same as CSS variable
+    const availableWidth = width - panelWidth;
+    
+    const widthRatio = (bounds[1][0] - bounds[0][0]) / availableWidth;
+    const heightRatio = (bounds[1][1] - bounds[0][1]) / height;
+    const scale = 0.07 / Math.max(widthRatio, heightRatio);
+    
+    // Center horizontally, shift vertically upward
+    const centerX = (availableWidth / 2) + 40;
+    const centerY = height * 0.01; // Changed from 0.01 to 0.4 for better vertical alignment
+    
+    projection
+        .scale(scale)
+        .translate([centerX, centerY]);
+    
+    farmData.projection = projection;
+    farmData.path = d3.geoPath().projection(projection);
+    farmData.width = width;
+    farmData.height = height;
+    farmData.availableWidth = availableWidth;
+    
+    // Store the initial transform for reset functionality
+    farmData.initialTransform = d3.zoomIdentity;
+}
+
+// Initialize zoom behavior
+function initZoom() {
+    const svg = d3.select("#map");
+    const mapGroup = d3.select("#map-group");
+    
+    farmData.zoom = d3.zoom()
+        .scaleExtent([1, 20])
+        .on("zoom", (event) => {
+            farmData.currentTransform = event.transform;
+            mapGroup.attr("transform", event.transform);
+            
+            if (farmData.labelSelection) {
+                updateLabelScale(event.transform.k);
+            }
+        });
+    
+    svg.call(farmData.zoom);
+    
+    // Set initial zoom
+    svg.call(farmData.zoom.transform, farmData.initialTransform);
+}
+
+// Scale labels during zoom
+function updateLabelScale(scale) {
+    if (!farmData.labelSelection) return;
+    const labelScale = 1 / scale;
+    farmData.labelSelection
+        .attr("font-size", config.labelFontSize * labelScale);
+}
+
+// Initialize tooltip
+function initTooltip() {
+    farmData.tooltip = d3.select("#tooltip");
+}
+
+// Initialize event listeners
+function initEventListeners() {
+    // Zoom controls
+    d3.select("#zoom-in").on("click", () => {
+        const svg = d3.select("#map");
+        svg.transition().duration(300).call(
+            farmData.zoom.scaleBy, 1.5
+        );
+    });
+    
+    d3.select("#zoom-out").on("click", () => {
+        const svg = d3.select("#map");
+        svg.transition().duration(300).call(
+            farmData.zoom.scaleBy, 0.75
+        );
+    });
+    
+    d3.select("#reset-view").on("click", () => {
+        const svg = d3.select("#map");
+        svg.transition().duration(500).call(
+            farmData.zoom.transform, farmData.initialTransform
+        );
+        resetSelection();
+    });
+    
+    // Navigation buttons
+    d3.select("#prev-block").on("click", selectPreviousBlock);
+    d3.select("#next-block").on("click", selectNextBlock);
+    
+    // Clear selection button
+    d3.select("#clearSelectionBtn").on("click", () => {
+        resetSelection();
+    });
+    
+    // Keyboard navigation
+    document.addEventListener("keydown", (event) => {
+        switch(event.key) {
+            case "ArrowLeft":
+                selectPreviousBlock();
+                break;
+            case "ArrowRight":
+                selectNextBlock();
+                break;
+            case "Escape":
+                resetSelection();
+                break;
+            case "+":
+            case "=":
+                if (event.ctrlKey || event.metaKey) {
+                    event.preventDefault();
+                    d3.select("#zoom-in").dispatch("click");
+                }
+                break;
+            case "-":
+            case "_":
+                if (event.ctrlKey || event.metaKey) {
+                    event.preventDefault();
+                    d3.select("#zoom-out").dispatch("click");
+                }
+                break;
+        }
+    });
+    
+    // Window resize
+    window.addEventListener("resize", debounce(() => {
+        const container = d3.select("#map-container");
+        const width = container.node().clientWidth;
+        const height = container.node().clientHeight;
+        
+        d3.select("#map")
+            .attr("width", width)
+            .attr("height", height);
+        
+        const panelWidth = 400;
+        farmData.availableWidth = width - panelWidth;
+        farmData.width = width;
+        farmData.height = height;
+        
+        const centerX = (farmData.availableWidth / 2) + 40;
+        const centerY = height * 0.01; // Match the 0.4 from initMap
+        
+        farmData.projection.translate([centerX, centerY]);
+        
+        redrawMap();
+    }, 250));
+}
+
+// Draw the map
+function drawMap() {
+    const blocksGroup = d3.select("#blocks-group");
+    const labelsGroup = d3.select("#labels-group");
+    
+    blocksGroup.selectAll("*").remove();
+    labelsGroup.selectAll("*").remove();
+    
+    farmData.blockSelection = blocksGroup.selectAll(".block")
+        .data(farmData.geoData.features)
+        .enter()
+        .append("path")
+        .attr("class", "block")
+        .attr("d", farmData.path)
+        .attr("fill", d => getBlockColor(d))
+        .on("click", onBlockClick)
+        .on("mouseover", onBlockMouseOver)
+        .on("mouseout", onBlockMouseOut);
+    
+    farmData.labelSelection = labelsGroup.selectAll(".block-label")
+        .data(farmData.geoData.features)
+        .enter()
+        .append("text")
+        .attr("class", "block-label")
+        .attr("font-size", config.labelFontSize)
+        .text(d => {
+            const name = d.properties.Field_Name || "";
+            return name.length > 12 ? name.substring(0, 10) + "..." : name;
+        })
+        .attr("x", d => farmData.path.centroid(d)[0])
+        .attr("y", d => farmData.path.centroid(d)[1])
+        .attr("dy", "0.35em");
+}
+
+// Redraw map (on resize)
+function redrawMap() {
+    farmData.blockSelection.attr("d", farmData.path);
+    farmData.labelSelection
+        .attr("x", d => farmData.path.centroid(d)[0])
+        .attr("y", d => farmData.path.centroid(d)[1]);
+}
+
+// Block color based on data
+function getBlockColor(feature) {
+    const fieldName = feature.properties.Field_Name;
+    const blockData = farmData.dataMap[fieldName];
+    
+    if (!blockData) return config.defaultFill;
+    
+    const plantsPerHectare = parseFloat(blockData["Plants per hectare"]) || 0;
+    const avgBunchWeight = parseFloat(blockData["Average Bunch Weight"]) || 0;
+    const estimatedYield = plantsPerHectare * avgBunchWeight;
+    
+    if (fieldName === farmData.selectedBlock) {
+        return config.selectedFill;
+    } else if (estimatedYield > config.highYieldThreshold) {
+        return config.highYieldFill;
+    }
+    
+    return config.defaultFill;
+}
+
+// Block click handler
+function onBlockClick(event, d) {
+    event.stopPropagation();
+    const fieldName = d.properties.Field_Name;
+    
+    if (farmData.selectedBlock === fieldName) {
+        resetSelection();
+        return;
+    }
+    
+    selectBlock(fieldName);
+    zoomToBlock(d);
+}
+
+// Block mouseover handler
+function onBlockMouseOver(event, d) {
+    const fieldName = d.properties.Field_Name;
+    const blockData = farmData.dataMap[fieldName];
+    
+    if (!blockData) return;
+    
+    if (fieldName !== farmData.selectedBlock) {
+        d3.select(event.currentTarget).raise();
+    }
+    
+    showTooltip(event, d);
+}
+
+// Block mouseout handler
+function onBlockMouseOut(event, d) {
+    hideTooltip();
+}
+
+// Show tooltip
+function showTooltip(event, feature) {
+    const fieldName = feature.properties.Field_Name;
+    const blockData = farmData.dataMap[fieldName];
+    
+    if (!blockData) return;
+    
+    const plantsPerHectare = parseFloat(blockData["Plants per hectare"]) || 0;
+    const avgBunchWeight = parseFloat(blockData["Average Bunch Weight"]) || 0;
+    const blockSize = parseFloat(blockData["Block Size"]) || 0;
+    const totalTrees = plantsPerHectare * blockSize;
+    const estimatedYield = (plantsPerHectare * avgBunchWeight).toFixed(1);
+    
+    const tooltipHtml = `
+        <div style="font-weight: 600; margin-bottom: 5px;">${fieldName}</div>
+        <div>Size: ${blockSize.toFixed(1)} ha</div>
+        <div>Plants: ${plantsPerHectare.toLocaleString()}/ha</div>
+        <div>Total Trees: ${totalTrees.toLocaleString()}</div>
+        <div>Avg Weight: ${avgBunchWeight} kg</div>
+        <div>Est. Yield: ${estimatedYield} kg/ha</div>
+    `;
+    
+    farmData.tooltip
+        .html(tooltipHtml)
+        .style("display", "block")
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 10) + "px");
+}
+
+// Hide tooltip
+function hideTooltip() {
+    farmData.tooltip.style("display", "none");
+}
+
+// Select a block
+function selectBlock(fieldName) {
+    // Reset previous selection
+    if (farmData.selectedBlock) {
+        farmData.blockSelection
+            .filter(d => d.properties.Field_Name === farmData.selectedBlock)
+            .classed("selected", false);
+    }
+    
+    // Set new selection
+    farmData.selectedBlock = fieldName;
+    farmData.selectedBlockIndex = farmData.blocks.indexOf(fieldName);
+    
+    farmData.blockSelection
+        .filter(d => d.properties.Field_Name === fieldName)
+        .classed("selected", true)
+        .raise();
+    
+    farmData.blockSelection
+        .attr("fill", d => getBlockColor(d));
+    
+    // Show block details section and update content
+    showBlockDetailsSection();
+    updateBlockDetails();
+    updateNavigationButtons();
+}
+
+// Reset selection
+function resetSelection() {
+    farmData.blockSelection.classed("selected", false);
+    
+    farmData.selectedBlock = null;
+    farmData.selectedBlockIndex = -1;
+    
+    farmData.blockSelection
+        .attr("fill", d => getBlockColor(d));
+    
+    // Hide block details section
+    hideBlockDetailsSection();
+    resetBlockDetails();
+    
+    // Show all labels
+    farmData.labelSelection.classed("hidden", false);
+    
+    // Update navigation buttons
+    updateNavigationButtons();
+    
+    // Reset the map view to initial position
+    const svg = d3.select("#map");
+    svg.transition().duration(500).call(
+        farmData.zoom.transform, farmData.initialTransform
+    );
+}
+
+// Show block details section
+function showBlockDetailsSection() {
+    d3.select("#blockDetailsSection").classed("visible", true);
+}
+
+// Hide block details section
+function hideBlockDetailsSection() {
+    d3.select("#blockDetailsSection").classed("visible", false);
+}
+
+// Zoom to block - WITH RIGHTWARD NUDGE
+function zoomToBlock(feature) {
+    const svg = d3.select("#map");
+    const bounds = farmData.path.bounds(feature);
+    const dx = bounds[1][0] - bounds[0][0];
+    const dy = bounds[1][1] - bounds[0][1];
+    const x = (bounds[0][0] + bounds[1][0]) / 2;
+    const y = (bounds[0][1] + bounds[1][1]) / 2;
+    
+    const scale = Math.max(1, Math.min(8, 0.8 / Math.max(dx / farmData.availableWidth, dy / farmData.height)));
+    // Add +40 to nudge the block to the right when zoomed in
+    const translate = [farmData.availableWidth / 2 - scale * x + 240, farmData.height / 2 - scale * y];
+    
+    svg.transition()
+        .duration(1000)
+        .call(farmData.zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+    
+    farmData.labelSelection.classed("hidden", d => {
+        return d.properties.Field_Name !== feature.properties.Field_Name;
+    });
+}
+
+// Select previous block
+function selectPreviousBlock() {
+    if (farmData.blocks.length === 0) return;
+    
+    let newIndex;
+    if (farmData.selectedBlockIndex === -1) {
+        newIndex = farmData.blocks.length - 1;
+    } else {
+        newIndex = (farmData.selectedBlockIndex - 1 + farmData.blocks.length) % farmData.blocks.length;
+    }
+    
+    const blockName = farmData.blocks[newIndex];
+    const feature = farmData.geoData.features.find(f => f.properties.Field_Name === blockName);
+    
+    if (feature) {
+        selectBlock(blockName);
+        zoomToBlock(feature);
+    }
+}
+
+// Select next block
+function selectNextBlock() {
+    if (farmData.blocks.length === 0) return;
+    
+    let newIndex;
+    if (farmData.selectedBlockIndex === -1) {
+        newIndex = 0;
+    } else {
+        newIndex = (farmData.selectedBlockIndex + 1) % farmData.blocks.length;
+    }
+    
+    const blockName = farmData.blocks[newIndex];
+    const feature = farmData.geoData.features.find(f => f.properties.Field_Name === blockName);
+    
+    if (feature) {
+        selectBlock(blockName);
+        zoomToBlock(feature);
+    }
+}
+
+// Update navigation buttons
+function updateNavigationButtons() {
+    const hasBlocks = farmData.blocks.length > 0;
+    const prevButton = d3.select("#prev-block");
+    const nextButton = d3.select("#next-block");
+    
+    if (!hasBlocks) {
+        prevButton.attr("disabled", true);
+        nextButton.attr("disabled", true);
+        return;
+    }
+    
+    prevButton.attr("disabled", null);
+    nextButton.attr("disabled", null);
+}
+
+// Update summary panel with expanded farm-wide statistics
+function updateSummary() {
+    const totalArea = farmData.csvData.reduce((sum, d) => 
+        sum + parseFloat(d["Block Size"] || 0), 0);
+    
+    const totalBlocks = farmData.csvData.length;
+    
+    // Calculate total trees
+    let totalTrees = 0;
+    farmData.csvData.forEach(d => {
+        const plants = parseFloat(d["Plants per hectare"] || 0);
+        const size = parseFloat(d["Block Size"] || 0);
+        totalTrees += plants * size;
+    });
+    
+    // Calculate farm plant density (weighted average)
+    const farmDensity = totalArea > 0 ? totalTrees / totalArea : 0;
+    
+    // Calculate average bunch weight (weighted by block size)
+    let weightedBunchWeight = 0;
+    let totalWeightedArea = 0;
+    farmData.csvData.forEach(d => {
+        const weight = parseFloat(d["Average Bunch Weight"] || 0);
+        const size = parseFloat(d["Block Size"] || 0);
+        weightedBunchWeight += weight * size;
+        totalWeightedArea += size;
+    });
+    const avgBunchWeight = totalWeightedArea > 0 ? weightedBunchWeight / totalWeightedArea : 0;
+    
+    // Calculate average yield
+    let totalYield = 0;
+    let blocksWithData = 0;
+    let totalEstimatedYield = 0;
+    
+    farmData.csvData.forEach(d => {
+        const plants = parseFloat(d["Plants per hectare"] || 0);
+        const weight = parseFloat(d["Average Bunch Weight"] || 0);
+        const size = parseFloat(d["Block Size"] || 0);
+        if (plants && weight) {
+            const blockYield = plants * weight;
+            totalYield += blockYield;
+            totalEstimatedYield += blockYield * size;
+            blocksWithData++;
+        }
+    });
+    
+    const avgYield = blocksWithData > 0 ? totalYield / blocksWithData : 0;
+    
+    // Count high yield blocks
+    const highYieldCount = farmData.csvData.filter(d => {
+        const plants = parseFloat(d["Plants per hectare"] || 0);
+        const weight = parseFloat(d["Average Bunch Weight"] || 0);
+        return (plants * weight) > config.highYieldThreshold;
+    }).length;
+    
+    // Update UI
+    d3.select("#total-area").text(`${totalArea.toFixed(1)} ha`);
+    d3.select("#total-blocks").text(totalBlocks);
+    d3.select("#total-trees").text(Math.round(totalTrees).toLocaleString());
+    d3.select("#farm-density").text(`${Math.round(farmDensity).toLocaleString()} plants/ha`);
+    d3.select("#avg-bunch-weight-farm").text(`${avgBunchWeight.toFixed(1)} kg`);
+    d3.select("#avg-yield").text(`${avgYield.toFixed(1)} kg/ha`);
+    d3.select("#total-yield").text(`${Math.round(totalEstimatedYield).toLocaleString()} kg`);
+    d3.select("#high-yield-count").text(highYieldCount);
+}
+
+// Update block details panel
+function updateBlockDetails() {
+    if (!farmData.selectedBlock) return;
+    
+    const blockData = farmData.dataMap[farmData.selectedBlock];
+    if (!blockData) return;
+    
+    const plantsPerHectare = parseFloat(blockData["Plants per hectare"]) || 0;
+    const avgBunchWeight = parseFloat(blockData["Average Bunch Weight"]) || 0;
+    const blockSize = parseFloat(blockData["Block Size"]) || 0;
+    const totalTrees = plantsPerHectare * blockSize;
+    const estimatedYield = plantsPerHectare * avgBunchWeight;
+    const estimatedYieldFormatted = estimatedYield.toFixed(1);
+    
+    // Update details
+    d3.select("#block-name").text(blockData["Block Name"] || "-");
+    d3.select("#block-size").text(`${blockSize.toFixed(1)} ha`);
+    d3.select("#plants-per-hectare").text(plantsPerHectare.toLocaleString());
+    d3.select("#block-total-trees").text(Math.round(totalTrees).toLocaleString());
+    d3.select("#avg-bunch-weight").text(`${avgBunchWeight} kg`);
+    d3.select("#block-yield").text(`${estimatedYieldFormatted} kg/ha`);
+    
+    // Update density chart
+    const maxPlants = Math.max(...farmData.csvData.map(d => 
+        parseFloat(d["Plants per hectare"]) || 0
+    ));
+    
+    const densityPercent = maxPlants > 0 ? (plantsPerHectare / maxPlants) * 100 : 0;
+    
+    d3.select("#density-fill")
+        .transition()
+        .duration(1000)
+        .style("width", `${densityPercent}%`);
+    
+    d3.select("#density-label").text(`${plantsPerHectare.toLocaleString()} plants/ha`);
+}
+
+// Reset block details panel
+function resetBlockDetails() {
+    d3.select("#block-name").text("-");
+    d3.select("#block-size").text("-");
+    d3.select("#plants-per-hectare").text("-");
+    d3.select("#block-total-trees").text("-");
+    d3.select("#avg-bunch-weight").text("-");
+    d3.select("#block-yield").text("-");
+    d3.select("#density-fill").style("width", "0%");
+    d3.select("#density-label").text("0 plants/ha");
+}
+
+// Show/hide loading indicator
+function showLoading(show) {
+    d3.select("#loading").style("display", show ? "flex" : "none");
+}
+
+// Utility function for debouncing
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Initialize the app
+init();
+</script>
+</body>
+</html>
