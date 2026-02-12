@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataBridge – Choose Your Plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600&family=Georgia:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Luxury Color Palette */
+    --navy: #0d2136;
+    --gold: #a8935a;
+    --beige: #d8d0c6;
+    --blue-grey: #8a949e;
+    --soft-gold: #d6cab0;
+    --light-beige: #e6e1da;
+    --light-grey: #d3d6d9;
+    --off-white: #f4f2ef;
+    --pure-white: #ffffff;
+    
+    /* Semantic mappings */
+    --bg-primary: var(--off-white);
+    --bg-secondary: var(--light-beige);
+    --text-primary: var(--navy);
+    --text-secondary: var(--blue-grey);
+    --accent-gold: var(--gold);
+    --accent-soft: var(--soft-gold);
+    --border-subtle: var(--light-grey);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Libre Franklin', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 64px 24px 96px;
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 72px;
+    animation: fadeUp .8s ease both;
+  }
+
+  .brand {
+    font-family: 'Georgia', serif;
+    font-size: 12px;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 24px;
+    font-weight: 400;
+  }
+
+  header h1 {
+    font-family: 'Georgia', serif;
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    line-height: 1.2;
+    color: var(--navy);
+    margin-bottom: 20px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  header h1 em {
+    font-style: italic;
+    color: var(--gold);
+    font-weight: 400;
+  }
+
+  header p {
+    font-size: 17px;
+    font-weight: 300;
+    color: var(--blue-grey);
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.8;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Cards wrapper ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    max-width: 1200px;
+    margin: 0 auto 80px;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 32px 100px rgba(13, 33, 54, 0.12);
+    animation: fadeUp .9s .15s ease both;
+    background: var(--pure-white);
+    border: 1px solid var(--light-grey);
+  }
+
+  /* ── Card base ── */
+  .card {
+    padding: 56px 40px 60px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--pure-white);
+  }
+
+  /* Vertical dividers */
+  .card-divider {
+    position: absolute;
+    top: 15%; 
+    bottom: 15%;
+    right: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--light-grey) 20%, var(--light-grey) 80%, transparent);
+  }
+
+  /* ── Starter (Basic) Card ── */
+  .card-starter {
+    background: var(--pure-white);
+  }
+
+  .card-starter .tier-label { color: var(--blue-grey); }
+  .card-starter .tier-label .dot { background: var(--blue-grey); }
+  .card-starter .pkg-name { color: var(--navy); }
+  .card-starter .pkg-tagline { color: var(--blue-grey); }
+  .card-starter .divider-line { background: var(--light-grey); }
+  .card-starter .section-title { color: var(--blue-grey); }
+  .card-starter .features li { 
+    border-color: rgba(138, 148, 158, 0.15); 
+    color: var(--navy); 
+  }
+  .card-starter .check { 
+    background: var(--light-beige); 
+    color: var(--navy);
+    border: 1px solid var(--light-grey);
+  }
+  .card-starter .ideal-section { 
+    background: var(--off-white); 
+    border: 1px solid var(--light-grey);
+  }
+  .card-starter .ideal-section .section-title { color: var(--blue-grey); }
+  .card-starter .tag { 
+    background: var(--light-beige); 
+    color: var(--navy); 
+    border: 1px solid var(--light-grey);
+  }
+  .card-starter .cta-btn {
+    background: transparent;
+    color: var(--navy);
+    border: 1.5px solid var(--navy);
+  }
+  .card-starter .cta-btn:hover {
+    background: var(--navy);
+    color: var(--pure-white);
+  }
+
+  /* ── Core Card ── */
+  .card-core {
+    background: linear-gradient(180deg, var(--pure-white) 0%, var(--off-white) 100%);
+    border-top: 3px solid var(--gold);
+  }
+
+  .card-core .tier-label { color: var(--gold); }
+  .card-core .tier-label .dot { background: var(--gold); }
+  .card-core .pkg-name { color: var(--navy); }
+  .card-core .pkg-tagline { color: var(--blue-grey); }
+  .card-core .divider-line { background: linear-gradient(90deg, transparent, var(--soft-gold), transparent); }
+  .card-core .section-title { color: var(--gold); }
+  .card-core .features li { 
+    border-color: rgba(168, 147, 90, 0.2); 
+    color: var(--navy); 
+  }
+  .card-core .check { 
+    background: var(--gold); 
+    color: var(--pure-white);
+  }
+  .card-core .ideal-section { 
+    background: rgba(168, 147, 90, 0.08); 
+    border: 1px solid rgba(168, 147, 90, 0.2);
+  }
+  .card-core .ideal-section .section-title { color: var(--gold); }
+  .card-core .tag { 
+    background: var(--soft-gold); 
+    color: var(--navy); 
+  }
+  .card-core .cta-btn {
+    background: var(--navy);
+    color: var(--pure-white);
+    border: 1.5px solid var(--navy);
+  }
+  .card-core .cta-btn:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--navy);
+  }
+
+  /* ── Advanced Card ── */
+  .card-adv {
+    background: var(--navy);
+    color: var(--pure-white);
+  }
+
+  .card-adv .tier-label { color: var(--soft-gold); }
+  .card-adv .tier-label .dot { background: var(--gold); box-shadow: 0 0 0 3px rgba(168, 147, 90, 0.2); }
+  .card-adv .pkg-name { color: var(--pure-white); }
+  .card-adv .pkg-tagline { color: var(--blue-grey); }
+  .card-adv .divider-line { background: linear-gradient(90deg, transparent, rgba(168, 147, 90, 0.4), transparent); }
+  .card-adv .section-title { color: var(--gold); }
+  .card-adv .features li { 
+    border-color: rgba(138, 148, 158, 0.25); 
+    color: var(--light-beige); 
+  }
+  .card-adv .check { 
+    background: var(--gold); 
+    color: var(--navy);
+  }
+  .card-adv .ideal-section { 
+    background: rgba(255, 255, 255, 0.05); 
+    border: 1px solid rgba(168, 147, 90, 0.3);
+  }
+  .card-adv .ideal-section .section-title { color: var(--soft-gold); }
+  .card-adv .tag { 
+    background: rgba(168, 147, 90, 0.15); 
+    color: var(--soft-gold); 
+    border: 1px solid rgba(168, 147, 90, 0.4);
+  }
+  .card-adv .cta-btn {
+    background: var(--gold);
+    color: var(--navy);
+    border: 1.5px solid var(--gold);
+    box-shadow: 0 4px 20px rgba(168, 147, 90, 0.3);
+  }
+  .card-adv .cta-btn:hover {
+    background: var(--soft-gold);
+    border-color: var(--soft-gold);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(168, 147, 90, 0.4);
+  }
+
+  /* tier label */
+  .tier-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .tier-label .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  /* package name */
+  .pkg-name {
+    font-family: 'Georgia', serif;
+    font-size: 2.6rem;
+    line-height: 1.1;
+    margin-bottom: 14px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  .pkg-tagline {
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.6;
+    margin-bottom: 36px;
+    min-height: 48px;
+    letter-spacing: 0.01em;
+  }
+
+  /* divider line */
+  .divider-line {
+    height: 1px;
+    margin-bottom: 32px;
+  }
+
+  /* section heading */
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .25em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  /* features list */
+  .features {
+    list-style: none;
+    margin-bottom: 36px;
+    flex: 1;
+  }
+
+  .features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.6;
+    padding: 10px 0;
+    border-bottom: 1px solid;
+    letter-spacing: 0.01em;
+  }
+  .features li:last-child { border-bottom: none; }
+
+  .check {
+    flex-shrink: 0;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    margin-top: 1px;
+    font-weight: 600;
+  }
+
+  /* ideal for */
+  .ideal-section {
+    border-radius: 6px;
+    padding: 22px 24px;
+    margin-bottom: 36px;
+  }
+
+  .ideal-section .section-title { margin-bottom: 14px; }
+
+  .ideal-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 14px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+  }
+
+  /* CTA */
+  .cta-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border-radius: 4px;
+    font-family: 'Libre Franklin', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-align: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .3s ease;
+    text-transform: uppercase;
+  }
+
+  /* ── Comparison table ── */
+  .compare-wrap {
+    max-width: 900px;
+    margin: 0 auto 64px;
+    animation: fadeUp .9s .25s ease both;
+  }
+
+  .compare-title {
+    font-family: 'Georgia', serif;
+    font-size: 1.6rem;
+    text-align: center;
+    margin-bottom: 32px;
+    color: var(--navy);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--pure-white);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(13, 33, 54, 0.06);
+    font-size: 14px;
+    border: 1px solid var(--light-grey);
+  }
+
+  thead tr {
+    background: var(--navy);
+    color: var(--pure-white);
+  }
+
+  thead th {
+    padding: 20px 24px;
+    text-align: left;
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--gold);
+  }
+  thead th:first-child { width: 40%; }
+  thead th:not(:first-child) { text-align: center; }
+
+  tbody tr { border-bottom: 1px solid var(--light-grey); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: rgba(244, 242, 239, 0.5); }
+
+  tbody td {
+    padding: 16px 24px;
+    color: var(--navy);
+    font-weight: 400;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--light-grey);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:not(:first-child) { text-align: center; }
+
+  .feature-name { 
+    font-weight: 500; 
+    color: var(--navy);
+    font-size: 14px;
+  }
+
+  .yes { 
+    color: var(--gold); 
+    font-size: 20px; 
+    font-weight: 600;
+  }
+  .partial {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--navy);
+    background: var(--soft-gold);
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+  .no { 
+    color: var(--light-grey); 
+    font-size: 18px; 
+    font-weight: 300;
+  }
+  .adv-yes { 
+    color: var(--gold); 
+    font-size: 20px; 
+    font-weight: 600;
+  }
+
+  /* ── Footer note ── */
+  .footer-note {
+    text-align: center;
+    font-size: 14px;
+    color: var(--blue-grey);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.8;
+    animation: fadeUp .9s .35s ease both;
+    font-weight: 300;
+    letter-spacing: 0.01em;
+  }
+
+  .footer-note strong { 
+    color: var(--navy); 
+    font-weight: 600; 
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1024px) {
+    .cards { grid-template-columns: 1fr; max-width: 480px; }
+    .card-divider { display: none; }
+    .card { 
+      padding: 48px 36px 52px; 
+      border-bottom: 1px solid var(--light-grey);
+    }
+    .card:last-child { border-bottom: none; }
+    .card-core { border-top: none; border-left: 4px solid var(--gold); }
+    thead th:first-child { width: 35%; }
+  }
+
+  @media (max-width: 640px) {
+    body { padding: 48px 20px 64px; }
+    header h1 { font-size: 2rem; }
+    .card { padding: 40px 28px 44px; }
+    table { font-size: 13px; }
+    thead th, tbody td { padding: 14px 16px; }
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<header>
+  <p class="brand">Equip BigData</p>
+  <h1>Investment in clarity<br><em>is investment in growth.</em></h1>
+  <p>Select a plan that reflects your ambition. From essential foundations to comprehensive advisory partnerships.</p>
+</header>
+
+<!-- ── Package Cards ── -->
+<div class="cards">
+
+  <!-- Starter (Basic) -->
+  <div class="card card-starter">
+    <div class="card-divider"></div>
+    <span class="tier-label"><span class="dot"></span>Essential</span>
+    <h2 class="pkg-name">Starter</h2>
+    <p class="pkg-tagline">Essential tools to begin your data journey with clarity and confidence.</p>
+
+    <div class="divider-line"></div>
+
+    <p class="section-title">What's Included</p>
+    <ul class="features">
+      <li><span class="check">✓</span>Basic data tracking spreadsheet templates</li>
+      <li><span class="check">✓</span>Monthly performance summary reports</li>
+      <li><span class="check">✓</span>Email support (48h response)</li>
+      <li><span class="check">✓</span>Community access & resources</li>
+    </ul>
+
+    <div class="ideal-section">
+      <p class="section-title">Ideal For</p>
+      <div class="ideal-tags">
+        <span class="tag">Solo founders</span>
+        <span class="tag">Pre-revenue startups</span>
+        <span class="tag">Testing the waters</span>
+      </div>
+    </div>
+
+    <a href="#" class="cta-btn">Begin with Starter</a>
+  </div>
+
+  <!-- Core -->
+  <div class="card card-core">
+    <div class="card-divider"></div>
+    <span class="tier-label"><span class="dot"></span>Professional</span>
+    <h2 class="pkg-name">Core</h2>
+    <p class="pkg-tagline">Structured systems to organise operations and prepare for sustainable scaling.</p>
+
+    <div class="divider-line"></div>
+
+    <p class="section-title">What's Included</p>
+    <ul class="features">
+      <li><span class="check">✓</span>Advanced tracking templates — financials, production & CRM</li>
+      <li><span class="check">✓</span>Customisable KPI dashboards</li>
+      <li><span class="check">✓</span>Export readiness assessment checklist</li>
+      <li><span class="check">✓</span>Automated monthly analytics reports</li>
+      <li><span class="check">✓</span>Priority email support (24h response)</li>
+    </ul>
+
+    <div class="ideal-section">
+      <p class="section-title">Ideal For</p>
+      <div class="ideal-tags">
+        <span class="tag">Growing SMEs</span>
+        <span class="tag">First-time systematizers</span>
+        <span class="tag">Revenue-generating</span>
+        <span class="tag">Small teams</span>
+      </div>
+    </div>
+
+    <a href="#" class="cta-btn">Scale with Core</a>
+  </div>
+
+  <!-- Advanced -->
+  <div class="card card-adv">
+    <span class="tier-label"><span class="dot"></span>Enterprise</span>
+    <h2 class="pkg-name">Advanced</h2>
+    <p class="pkg-tagline">White-glove integration with strategic advisory for investment and global expansion.</p>
+
+    <div class="divider-line"></div>
+
+    <p class="section-title">What's Included</p>
+    <ul class="features">
+      <li><span class="check">✓</span>Full system integration across all business verticals</li>
+      <li><span class="check">✓</span>Real-time interactive executive dashboards</li>
+      <li><span class="check">✓</span>Comprehensive gap analysis & strategic roadmap</li>
+      <li><span class="check">✓</span>Dedicated advisory for investment readiness</li>
+      <li><span class="check">✓</span>Export market entry strategy & coaching</li>
+      <li><span class="check">✓</span>White-glove onboarding & dedicated account manager</li>
+    </ul>
+
+    <div class="ideal-section">
+      <p class="section-title">Ideal For</p>
+      <div class="ideal-tags">
+        <span class="tag">Scale-ups</span>
+        <span class="tag">Investment-ready</span>
+        <span class="tag">Global expansion</span>
+        <span class="tag">Complex operations</span>
+      </div>
+    </div>
+
+    <a href="#" class="cta-btn">Transform with Advanced</a>
+  </div>
+
+</div>
+
+<!-- ── Comparison Table ── -->
+<div class="compare-wrap">
+  <h3 class="compare-title">Comprehensive Comparison</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Capability</th>
+        <th>Starter</th>
+        <th>Core</th>
+        <th>Advanced</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="feature-name">Data tracking templates</td>
+        <td><span class="yes">●</span> Basic</td>
+        <td><span class="yes">●</span> Advanced</td>
+        <td><span class="adv-yes">●</span> Custom</td>
+      </tr>
+      <tr>
+        <td class="feature-name">KPI dashboards</td>
+        <td><span class="no">–</span></td>
+        <td><span class="yes">●</span> Standard</td>
+        <td><span class="adv-yes">●</span> Real-time</td>
+      </tr>
+      <tr>
+        <td class="feature-name">System integration</td>
+        <td><span class="no">–</span></td>
+        <td><span class="partial">Partial</span></td>
+        <td><span class="adv-yes">●</span> Full</td>
+      </tr>
+      <tr>
+        <td class="feature-name">Automated reporting</td>
+        <td><span class="yes">●</span> Monthly</td>
+        <td><span class="yes">●</span> Monthly</td>
+        <td><span class="adv-yes">●</span> Real-time</td>
+      </tr>
+      <tr>
+        <td class="feature-name">Readiness assessment</td>
+        <td><span class="no">–</span></td>
+        <td><span class="yes">●</span> Checklist</td>
+        <td><span class="adv-yes">●</span> Full audit</td>
+      </tr>
+      <tr>
+        <td class="feature-name">Gap analysis</td>
+        <td><span class="no">–</span></td>
+        <td><span class="no">–</span></td>
+        <td><span class="adv-yes">●</span> Strategic</td>
+      </tr>
+      <tr>
+        <td class="feature-name">Advisory & coaching</td>
+        <td><span class="no">–</span></td>
+        <td><span class="no">–</span></td>
+        <td><span class="adv-yes">●</span> Dedicated</td>
+      </tr>
+      <tr>
+        <td class="feature-name">Support response</td>
+        <td>48 hours</td>
+        <td>24 hours</td>
+        <td>4 hours</td>
+      </tr>
+      <tr>
+        <td class="feature-name">Best suited for</td>
+        <td>Exploration</td>
+        <td>Growth & organisation</td>
+        <td>Scale & investment</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="footer-note">
+  Every journey begins with a single step. <strong>Start with Starter</strong> to build your foundation, and upgrade seamlessly as your ambitions expand. No friction, no lost progress.
+</p>
+
+</body>
+</html>
